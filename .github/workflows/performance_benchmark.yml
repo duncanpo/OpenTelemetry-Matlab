@@ -1,0 +1,70 @@
+# Performance benchmarking workflow
+name: "Build and Run Benchmark"
+on: 
+    workflow_dispatch:
+    push:
+      branches-ignore:
+        - 'main'
+        - '[0-9]+.[0-9]+.[0-9]+'
+env:
+  MLM_LICENSE_TOKEN: ${{ secrets.MLM_LICENSE_TOKEN }}
+jobs:
+    get_version:
+        runs-on: ubuntu-20.04
+        outputs:
+          version: ${{ steps.getversion.outputs.latest_tag }}
+        steps:
+            # need fetch-depth:0 to also download the tags
+            - name: Download OpenTelemetry-Matlab source
+              uses: actions/checkout@v3
+              with: 
+                path: opentelemetry-matlab
+                fetch-depth: 0
+            - name: Get Version
+              id: getversion
+              shell: bash
+              working-directory: opentelemetry-matlab
+              run: echo "latest_tag=$(sed -re 's/^v?([[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+)?.*/\1/' <<< $(git describe --tags --abbrev=0))" >> $GITHUB_OUTPUT
+    benchmark-ubuntu:
+        # Running on ubuntu-latest would use a glibc version that is incompatible when using the built mex files on a Debian 11 
+        # Instead, run on ubuntu-20.04
+        runs-on: ubuntu-20.04
+        needs: get_version
+        env:
+            OPENTELEMETRY_MATLAB_INSTALL: "${{ github.workspace }}/otel_matlab_install"
+            SYSTEM_LIBSTDCPP_PATH: "/usr/lib/x86_64-linux-gnu/libstdc++.so.6"
+        steps:
+            - name: Download OpenTelemetry-Matlab source
+              uses: actions/checkout@v3
+              with: 
+                path: opentelemetry-matlab
+            - name: Install ninja-build
+              run: sudo apt-get install ninja-build
+            - name: Install MATLAB
+              uses: matlab-actions/setup-matlab@v2
+              with:
+                products: MATLAB_Compiler MATLAB_Compiler_SDK
+            - name: Build OpenTelemetry-Matlab
+              working-directory: opentelemetry-matlab
+              run: |
+                  cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DWITH_EXAMPLES=ON -DUSE_BATCH_FOR_MCC=ON -DOTEL_MATLAB_VERSION=${{ needs.get_version.outputs.version }} -DCMAKE_INSTALL_PREFIX=${{ env.OPENTELEMETRY_MATLAB_INSTALL }}
+                  cmake --build build --config Release --target install
+            - name: Run Benchmark
+              env:
+                 # Add the installation directory to the MATLAB Search Path by
+                 # setting the MATLABPATH environment variable.
+                 MATLABPATH: ${{ env.OPENTELEMETRY_MATLAB_INSTALL }}
+              uses: matlab-actions/run-command@v2
+              with:
+                 command: opentelemetry-matlab/test/performance/runPerf
+            - name: Download previous benchmark data
+              uses: actions/cache@v4
+              with:
+                path: ./cache
+                key: ${{ runner.os }}-benchmark
+            - name: Store benchmark result
+              uses: benchmark-action/github-action-benchmark@v1
+              with:
+                tool: 'customSmallerIsBetter'
+                output-file-path: opentelemetry-matlab/test/performance/Benchmarks/OutputBenchmark.json
+                external-data-json-path: ./cache/OutputBenchmark.json
