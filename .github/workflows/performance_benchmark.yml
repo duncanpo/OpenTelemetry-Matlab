@@ -66,5 +66,5 @@ jobs:
               uses: benchmark-action/github-action-benchmark@v1
               with:
                 tool: 'customSmallerIsBetter'
-                output-file-path: opentelemetry-matlab/test/performance/Benchmarks/OutputBenchmark.json
+                output-file-path: ./Benchmarks/OutputBenchmark.json
                 external-data-json-path: ./cache/OutputBenchmark.json
