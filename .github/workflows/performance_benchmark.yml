@@ -50,7 +50,6 @@ jobs:
                   cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DWITH_EXAMPLES=ON -DUSE_BATCH_FOR_MCC=ON -DOTEL_MATLAB_VERSION=${{ needs.get_version.outputs.version }} -DCMAKE_INSTALL_PREFIX=${{ env.OPENTELEMETRY_MATLAB_INSTALL }}
                   cmake --build build --config Release --target install
             - name: Run Benchmark
-              working-directory: opentelemetry-matlab
               env:
                  # Add the installation directory to the MATLAB Search Path by
                  # setting the MATLABPATH environment variable.
