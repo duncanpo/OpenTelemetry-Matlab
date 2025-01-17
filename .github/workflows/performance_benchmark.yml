@@ -56,7 +56,7 @@ jobs:
                  MATLABPATH: ${{ env.OPENTELEMETRY_MATLAB_INSTALL }}
               uses: matlab-actions/run-command@v2
               with:
-                 command: addpath("./test/performance"), runPerf
+                 command: run("test/performance/runperf.m")
             - name: Download previous benchmark data
               uses: actions/cache@v4
               with:
